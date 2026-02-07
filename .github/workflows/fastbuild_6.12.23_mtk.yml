@@ -397,7 +397,7 @@ jobs:
           cp ./oppo_oplus_realme_sm8850/zram_patch/001-lz4.patch ./common/
           cp ./oppo_oplus_realme_sm8850/zram_patch/002-zstd.patch ./common/
           cd ./common
-          git apply -p1 < 001-lz4.patch || true
+          patch -p1 < 001-lz4.patch || true
           patch -p1 < 002-zstd.patch || true
 
       - name: 应用 lz4kd 补丁
@@ -827,7 +827,7 @@ jobs:
           tag_name: "${{ env.TAG_HEAD }}-${{ env.TIME }}"
           name: "${{ env.TAG_HEAD }}-${{ env.FULL_VERSION }}"
           body: |
-            ### 📱 欧加真 ${{ env.KSU_TYPENAME }} sm8850 通用内核 | 构建信息
+            ### 📱 欧加真 ${{ env.KSU_TYPENAME }} MT6993 通用内核 | 构建信息
             - 内核版本号: ${{ env.FULL_VERSION }}
             - 编译时间: ${{ env.TIME_FORM }}
             - 机型：欧加真天玑 9500 通用 6.12.23 内核（基于OPPO Find X9 6.12.23 版官方源码）

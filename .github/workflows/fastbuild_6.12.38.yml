@@ -397,7 +397,7 @@ jobs:
           cp ./oppo_oplus_realme_sm8850/zram_patch/001-lz4.patch ./common/
           cp ./oppo_oplus_realme_sm8850/zram_patch/002-zstd.patch ./common/
           cd ./common
-          git apply -p1 < 001-lz4.patch || true
+          patch -p1 < 001-lz4.patch || true
           patch -p1 < 002-zstd.patch || true
 
       - name: 应用 lz4kd 补丁
