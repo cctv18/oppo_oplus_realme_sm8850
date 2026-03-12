@@ -11,7 +11,7 @@ env:
 on:
   workflow_dispatch:
     inputs:
-      ksu_type:
+      ksu_type:ksu
         description: 'KernelSU分支(ReSukiSU/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认ReSukiSU)'
         required: true
         type: choice
@@ -22,12 +22,12 @@ on:
           - 'ksunext'
           - 'ksu'
           - 'none'
-      susfs_enable:
+      susfs_enable:false
         description: '是否开启susfs(用于增强隐藏环境挂载功能; 可能轻微增加耗电，上游更新导致不稳定时或不需要可关闭)'
         required: true
         type: boolean
-        default: 'true'
-      kpm_enable:
+        default: 'ture'
+      kpm_enable: 
         description: '是否开启kpm(builtin-使用(re)sukisu内置kpm, kpn-使用独立kpm实现(支持任意KSU/面具环境); 不需要可保持默认关闭)'
         required: true
         type: choice
@@ -36,7 +36,7 @@ on:
           - 'false'
           - 'builtin'
           - 'kpn'
-      lz4_enable:
+      lz4_enable:ture
         description: '是否安装 lz4 1.10.0+zstd 1.5.7 补丁及 LZ4KD 补丁'
         required: true
         type: boolean
@@ -46,7 +46,7 @@ on:
         required: true
         type: boolean
         default: 'false'
-      bbr_enable:
+      bbr_enable:false
         description: "是否启用bbr算法(优化上行数据,对手机日用无太大意义甚至可能负优化;false关闭,true仅加入算法,default启用算法并设为默认)"
         required: true
         type: choice
@@ -60,22 +60,22 @@ on:
         required: true
         type: boolean
         default: 'false'
-      adios_enable:
+      adios_enable:ture
         description: '是否启用ADIOS IO调度器支持(提升IO读写性能)'
         required: true
         type: boolean
         default: 'true'
-      rekernel_enable:
+      rekernel_enable:false
         description: '是否启用Re-Kernel支持(与Freezer/NoActive等软件配合, 提升应用冻结能力)'
         required: true
         type: boolean
         default: 'false'
-      baseband_guard:
+      baseband_guard:ture
         description: '是否开启内核级基带保护(阻止一切对非用户分区的写入，有效防止格机)'
         required: true
         type: boolean
         default: 'true'
-      ccache_update:
+      ccache_update: 
         description: '更新ccache缓存(将本次编译生成的ccache缓存覆盖至仓库缓存，在更改编译配置、源码或需要刷新缓存时开启)'
         required: true
         type: boolean
@@ -85,7 +85,7 @@ on:
         required: true
         type: boolean
         default: 'false'
-      kernel_suffix:
+      kernel_suffix:Q
         description: '内核后缀(留空默认,开头别加连字符,勿加空格等影响指令运行的保留字符)'
         required: false
         type: string
