@@ -354,6 +354,13 @@ jobs:
             cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
             cd ./KernelSU
             patch -p1 < 10_enable_susfs_for_ksu.patch || true
+          elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
+            echo "正在为 KernelSU Next 添加 susfs spoof_uname 兼容补丁..."
+            cd ./common
+            grep -q "susfs_set_uname_from_kernel" include/linux/susfs.h || \
+            perl -0pi -e 's@void susfs_set_uname\(void __user \*\*user_info\);\n@void susfs_set_uname(void __user **user_info);\nbool susfs_uname_is_active(void);\nint susfs_set_uname_from_kernel(const char *release, const char *version);\n@' include/linux/susfs.h
+            grep -q "susfs_uname_is_active" fs/susfs.c || \
+            perl -0pi -e 's@SUSFS_LOGI\("CMD_SUSFS_SET_UNAME -> ret: %d\\n", info\.err\);\n}\n\nvoid susfs_spoof_uname\(struct new_utsname\* tmp\) \{@SUSFS_LOGI("CMD_SUSFS_SET_UNAME -> ret: %d\\n", info.err);\n}\n\nbool susfs_uname_is_active(void)\n{\n\tunsigned seq;\n\tbool is_active;\n\n\tdo {\n\t\tseq = read_seqbegin(&susfs_uname_seqlock);\n\t\tis_active = is_susfs_uname_set;\n\t} while (read_seqretry(&susfs_uname_seqlock, seq));\n\n\treturn is_active;\n}\n\nint susfs_set_uname_from_kernel(const char *release, const char *version)\n{\n\tif (!release || !version || *release == '\''\\0'\'' || *version == '\''\\0'\'')\n\t\treturn -EINVAL;\n\n\twrite_seqlock(&susfs_uname_seqlock);\n\tif (!strcmp(release, "default"))\n\t\tstrscpy(my_uname.release, utsname()->release, sizeof(my_uname.release));\n\telse\n\t\tstrscpy(my_uname.release, release, sizeof(my_uname.release));\n\n\tif (!strcmp(version, "default"))\n\t\tstrscpy(my_uname.version, utsname()->version, sizeof(my_uname.version));\n\telse\n\t\tstrscpy(my_uname.version, version, sizeof(my_uname.version));\n\tis_susfs_uname_set = true;\n\twrite_sequnlock(&susfs_uname_seqlock);\n\treturn 0;\n}\n\nvoid susfs_spoof_uname(struct new_utsname* tmp) {@s' fs/susfs.c
           fi
           
       - name: 应用lz4 1.10.0 & zstd 1.5.7补丁
