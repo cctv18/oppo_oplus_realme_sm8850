@@ -75,6 +75,11 @@ on:
         required: true
         type: boolean
         default: 'true'
+      lxc_docker_support:
+        description: '是否开启lxc/docker内核功能支持'
+        required: true
+        type: boolean
+        default: 'false'
       ccache_update:
         description: '更新ccache缓存(将本次编译生成的ccache缓存覆盖至仓库缓存，在更改编译配置、源码或需要刷新缓存时开启)'
         required: true
@@ -85,6 +90,11 @@ on:
         required: true
         type: boolean
         default: 'false'
+      release:
+        description: '是否发布'
+        required: true
+        type: boolean
+        default: 'true'
       kernel_suffix:
         description: '内核后缀(留空默认,开头别加连字符,勿加空格等影响指令运行的保留字符)'
         required: false
@@ -521,6 +531,21 @@ jobs:
           echo "CONFIG_REKERNEL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_REKERNEL_NETWORK=y" >> ./common/arch/arm64/configs/gki_defconfig
 
+      - name: 开启lxc/docker内核功能支持
+        if: inputs.lxc_docker_support
+        run: |
+          cd kernel_workspace
+
+          wget https://github.com/cctv18/kernel-workshop/raw/refs/heads/main/patch/fulldocker/defconfig_append
+          cat ./defconfig_append >> ./common/arch/arm64/configs/gki_defconfig
+
+          echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DM_THIN_PROVISIONING=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          cd common
+          wget https://github.com/cctv18/kernel-workshop/raw/refs/heads/main/patch/fulldocker/superkernel.diff
+          patch -p1 -F 1 < superkernel.diff
+      
       - name: 启用内核级基带保护
         if: inputs.baseband_guard
         run: |
@@ -789,6 +814,7 @@ jobs:
           archive: false
 
   release:
+    if: inputs.release
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -855,6 +881,7 @@ jobs:
           - BBR/Brutal 等拥塞控制算法支持：${{ github.event.inputs.bbr_enable }}
           - ADIOS IO调度器支持：${{ github.event.inputs.adios_enable }}
           - Re-Kernel支持：${{ github.event.inputs.rekernel_enable }}
+          - LXC/Docker内核功能支持：${{ github.event.inputs.lxc_docker_support }}
           - 内核级基带保护支持：${{ github.event.inputs.baseband_guard }}
           - ReSukiSU管理器下载：[ReSukiSU_CI](https://github.com/cctv18/ReSukiSU_CI/releases)
           - SukiSU Ultra管理器下载：[SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases)
