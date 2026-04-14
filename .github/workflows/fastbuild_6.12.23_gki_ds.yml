@@ -76,7 +76,7 @@ on:
         type: boolean
         default: 'true'
       lxc_docker_support:
-        description: '是否开启lxc/docker内核功能支持'
+        description: '是否开启Droidspace内核功能支持'
         required: true
         type: boolean
         default: 'false'
