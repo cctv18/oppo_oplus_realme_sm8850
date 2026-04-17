@@ -1,4 +1,4 @@
-name: (新版米/欧加真通用) 6.12.23 GKI内核快速构建
+name: (新版米/欧加真通用) 6.12.23 GKI ds内核快速构建
 
 env:
   TZ: Asia/Shanghai
@@ -76,7 +76,7 @@ on:
         type: boolean
         default: 'true'
       lxc_docker_support:
-        description: '是否开启lxc/docker内核功能支持'
+        description: '是否开启Droidspace内核功能支持'
         required: true
         type: boolean
         default: 'false'
@@ -531,20 +531,41 @@ jobs:
           echo "CONFIG_REKERNEL=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_REKERNEL_NETWORK=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-      - name: 开启lxc/docker内核功能支持
+      - name: 开启Droidspaces内核功能支持
         if: inputs.lxc_docker_support
         run: |
           cd kernel_workspace
 
-          wget https://github.com/cctv18/kernel-workshop/raw/refs/heads/main/patch/fulldocker/defconfig_append
-          cat ./defconfig_append >> ./common/arch/arm64/configs/gki_defconfig
+          # IPC
+          echo "CONFIG_SYSVIPC=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_POSIX_MQUEUE=y" >> ./common/arch/arm64/configs/gki_defconfig
 
-          echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_DM_THIN_PROVISIONING=y" >> ./common/arch/arm64/configs/gki_defconfig
+          # Namespaces
+          echo "CONFIG_IPC_NS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_PID_NS=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          # HW Access Support
+          echo "CONFIG_DEVTMPFS=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          # --- Below configs are optional ---
+
+          # Docker NAT
+          echo "CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=y" >> ./common/arch/arm64/configs/gki_defconfig 
+
+          # UFW
+          echo "CONFIG_NETFILTER_XT_TARGET_REJECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_TARGET_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_MATCH_RECENT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          
+          # Fail2ban
+          echo "CONFIG_IP_SET=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_IP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP_SET_HASH_NET=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NETFILTER_XT_SET=y" >> ./common/arch/arm64/configs/gki_defconfig
 
           cd common
-          wget https://github.com/cctv18/kernel-workshop/raw/refs/heads/main/patch/fulldocker/superkernel.diff
-          patch -p1 -F 1 < superkernel.diff
+          wget -O sysvipc.patch https://github.com/cctv18/android_gki_kernel_common/compare/android16-6.12-2025-06...adk23333:android_gki_kernel_common:test.patch
+          patch -p1 -F 1 < sysvipc.patch
       
       - name: 启用内核级基带保护
         if: inputs.baseband_guard
