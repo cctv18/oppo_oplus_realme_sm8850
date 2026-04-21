@@ -6,7 +6,7 @@ env:
   KERNEL_VERSION: '6.12'
   SUB_VERSION: '38'
   KERNEL_NAME: 'android16-5-g8c67d4274c0a-ab14275539-4k'
-  CCACHE_KEY: ccache-neov4-6.12.38
+  CCACHE_KEY: ccache-ecsv1-6.12.38
 
 on:
   workflow_dispatch:
