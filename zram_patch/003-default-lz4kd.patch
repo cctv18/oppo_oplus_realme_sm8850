@@ -1,0 +1,19 @@
+# 设置 lz4kd 为默认 ZRAM 压缩算法的补丁
+# 这个补丁需要应用到内核源码的 drivers/block/zram/zram_drv.c 文件
+
+diff --git a/drivers/block/zram/zram_drv.c b/drivers/block/zram/zram_drv.c
+--- a/drivers/block/zram/zram_drv.c
++++ b/drivers/block/zram/zram_drv.c
+@@ -61,7 +61,11 @@ static ssize_t disksize_store(struct device *dev,
+ 	return len;
+ }
+ 
+-#define DEFAULT_COMP_ALG "lzo"
++#ifdef CONFIG_ZRAM_BACKEND_LZ4KD
++#define DEFAULT_COMP_ALG "lz4kd"
++#else
++#define DEFAULT_COMP_ALG "lzo"
++#endif
+ 
+ static ssize_t comp_algorithm_show(struct device *dev,
+ 				   struct device_attribute *attr, char *buf)

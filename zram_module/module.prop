@@ -1,0 +1,6 @@
+id=zram_adaptive
+name=ZRAM压缩算法切换(6.12重制版)
+version=1.3
+versionCode=1
+author=cctv18(Coolapk@cctv18_2)
+description=开机时加载/管理ZRAM

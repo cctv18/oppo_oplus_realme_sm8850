@@ -31,6 +31,8 @@ read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
 APPLY_REKERNEL=${APPLY_REKERNEL:-n}
 read -p "是否启用内核级基带保护？(y/n，默认：y): " APPLY_BBG
 APPLY_BBG=${APPLY_BBG:-y}
+read -p "是否启用CPU负载均衡优化？(y/n，默认：y): " APPLY_LOAD_BALANCE
+APPLY_LOAD_BALANCE=${APPLY_LOAD_BALANCE:-y}
 
 if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   KSU_TYPE="SukiSU Ultra"
@@ -66,6 +68,7 @@ echo "应用 BBR 等算法: $APPLY_BBR"
 echo "启用ADIOS调度器: $APPLY_ADIOS"
 echo "启用Re-Kernel: $APPLY_REKERNEL"
 echo "启用内核级基带保护: $APPLY_BBG"
+echo "启用CPU负载均衡优化: $APPLY_LOAD_BALANCE"
 echo "===================="
 echo
 
@@ -253,6 +256,12 @@ if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   cd "$WORKDIR/kernel_workspace/common"
   wget https://github.com/cctv18/oppo_oplus_realme_sm8850/raw/refs/heads/main/other_patch/lz4kd.patch
   patch -p1 -F 3 < lz4kd.patch || true
+  
+  # 应用默认算法补丁 - 设置 lz4kd 为默认压缩算法
+  echo ">>> 设置 lz4kd 为默认 ZRAM 压缩算法..."
+  cp "$WORKDIR/../zram_patch/003-default-lz4kd.patch" ./
+  patch -p1 < 003-default-lz4kd.patch || true
+  
   cd "$WORKDIR/kernel_workspace"
 else
   echo ">>> 跳过 LZ4KD 补丁..."
@@ -390,6 +399,29 @@ if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   curl -sSL https://github.com/cctv18/Baseband-guard/raw/master/setup.sh | bash
   sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' security/Kconfig
   cd ..
+fi
+
+# ===== 启用CPU负载均衡优化（WALT调度器）=====
+if [[ "$APPLY_LOAD_BALANCE" == "y" || "$APPLY_LOAD_BALANCE" == "Y" ]]; then
+  echo ">>> 正在启用CPU负载均衡优化（WALT调度器）..."
+  cat >> "$DEFCONFIG_FILE" <<EOF
+# CPU负载均衡优化 - WALT调度器
+CONFIG_SCHED_WALT=y
+CONFIG_WALT=y
+CONFIG_SCHED_MC=y
+CONFIG_SCHED_SMT=y
+# WALT调度器相关
+CONFIG_WALT_CPU_FREQ_CONTROLLER=y
+CONFIG_WALT_LOAD_TRACKING=y
+# 调度器特性
+CONFIG_SCHED_AUTOGROUP=y
+CONFIG_FAIR_GROUP_SCHED=y
+CONFIG_CFS_BANDWIDTH=y
+# 禁用EAS相关（WALT替代）
+# CONFIG_ENERGY_MODEL is not set
+# CONFIG_CPU_FREQ_GOV_SCHEDUTIL is not set
+EOF
+  echo ">>> WALT调度器已启用"
 fi
 
 # ===== 禁用 defconfig 检查 =====
@@ -533,9 +565,16 @@ if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-bbg"
 fi
 
+# ===== 将 ZRAM 管理模块集成到内核包中 =====
+if [ -d "$SCRIPT_DIR/../zram_module" ]; then
+  echo ">>> 将 ZRAM 管理模块集成到内核包中..."
+  cp -r "$SCRIPT_DIR/../zram_module/"* ./
+  echo ">>> ZRAM 模块已集成到内核包"
+fi
+
 ZIP_NAME="${ZIP_NAME}-v$(date +%Y%m%d).zip"
 
-# ===== 打包 ZIP 文件，包括 zram.zip（如果存在） =====
+# ===== 打包 ZIP 文件（已包含ZRAM模块）=====
 echo ">>> 打包文件: $ZIP_NAME"
 zip -r "../$ZIP_NAME" ./*
 
