@@ -80,11 +80,6 @@ on:
         required: true
         type: boolean
         default: 'false'
-      xtreme_compile:
-        description: '开启极速编译模式(在已有ccache+output输出缓存基础上增量编译，可能导致bug，建议仅用于开发测试)'
-        required: true
-        type: boolean
-        default: 'false'
       ccache_debug:
         description: '是否上传 Ccache调试日志(用于调试, 无需要不必开启)'
         required: true
@@ -178,17 +173,6 @@ jobs:
             ${{ env.CCACHE_KEY }}-${{ runner.os }}-
             ${{ env.CCACHE_KEY }}-
 
-      - name: 载入当前版本内核的output缓存(极速编译模式)
-        if: inputs.xtreme_compile
-        uses: actions/cache@v5
-        id: output-restore
-        with:
-          path: ${{ github.workspace }}/kernel_workspace/common/out
-          key: out-${{ env.CCACHE_KEY }}-${{ runner.os }}-${{ github.ref_name }}
-          restore-keys: |
-            out-${{ env.CCACHE_KEY }}-${{ runner.os }}-
-            out-${{ env.CCACHE_KEY }}-
-
       - name: 拉取公共预置 ccache 缓存
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -211,29 +195,6 @@ jobs:
             echo "公共 ccache 中未找到对应的 ccache 文件，将进行全量全新编译..."
           fi
 
-      - name: 拉取公共预置 output 缓存(极速编译模式)
-        if: inputs.xtreme_compile
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "检查本地缓存状态..."
-          if [ -d "${{ github.workspace }}/kernel_workspace/common/out" ] && [ "$(ls -A ${{ github.workspace }}/kernel_workspace/common/out 2>/dev/null)" ]; then
-            echo "检测到本地已成功载入 output 缓存，跳过公共 output 拉取！"
-            exit 0
-          fi
-          
-          echo "未命中缓存，尝试拉取最新公共 output ..."
-          mkdir -p ${{ github.workspace }}/kernel_workspace/common/out
-          FILE_NAME="out-${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}.tar.zst"
-          
-          if gh release download -p "$FILE_NAME" -R cctv18/public_ccache; then
-            echo "成功下载 $FILE_NAME，正在解压..."
-            tar -I zstd -xf "$FILE_NAME" -C ${{ github.workspace }}/kernel_workspace/common/out
-            echo "公共 output 恢复完成！"
-          else
-            echo "公共 output 中未找到对应的 output 文件！"
-          fi
-
       - name: 清除旧 ccache 缓存
         if: inputs.ccache_update
         env:
@@ -242,11 +203,6 @@ jobs:
           echo "正在清除仓库中的旧 ccache 缓存..."
           if gh cache delete ${{ env.CCACHE_KEY }}-${{ runner.os }}-${{ github.ref_name }} -R ${{ github.repository }}; then
             echo "成功删除旧的 ccache 缓存！"
-          else
-            echo "旧缓存不存在或已被清理！"
-          fi
-          if gh cache delete out-${{ env.CCACHE_KEY }}-${{ runner.os }}-${{ github.ref_name }} -R ${{ github.repository }}; then
-            echo "成功删除旧的 output 缓存！"
           else
             echo "旧缓存不存在或已被清理！"
           fi
@@ -731,13 +687,6 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ env.CCACHE_KEY }}-${{ runner.os }}-${{ github.ref_name }}
-
-      - name: 保存新的 output 缓存
-        if: ${{ inputs.xtreme_compile && (inputs.ccache_update || steps.output-restore.outputs.cache-hit != 'true') }}
-        uses: actions/cache/save@v5
-        with:
-          path: ${{ github.workspace }}/kernel_workspace/common/out
-          key: out-${{ env.CCACHE_KEY }}-${{ runner.os }}-${{ github.ref_name }}
          
       - name: 应用KPM并修补内核
         run: |
