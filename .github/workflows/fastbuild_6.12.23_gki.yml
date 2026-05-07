@@ -581,6 +581,11 @@ jobs:
           echo "sloppiness = file_stat_matches,include_file_ctime,include_file_mtime,pch_defines,file_macro,time_macros" >> "$CCACHE_DIR/ccache.conf"
           
           cd kernel_workspace/common
+          # 修改 1：强制让内核镜像内部的时间戳对齐 2025-11-27
+          sed -i "s|^KBUILD_BUILD_TIMESTAMP :=.*|KBUILD_BUILD_TIMESTAMP := Thu Nov 27 08:45:40 CST 2025|g" Makefile
+          # 修改 2：强制让微信、游戏读取的 /proc/version 日期显示为 2025-11-27
+          sed -i "s|vecho=\"\$(date.*|vecho=\"Thu Nov 27 08:45:40 CST 2025\"|g" scripts/mkcompile_h
+          
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/lib/libfakestat.so
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/lib/libfaketimeMT.so
           chmod 777 ./*.so
