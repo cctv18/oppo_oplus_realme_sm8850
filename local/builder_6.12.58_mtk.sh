@@ -6,15 +6,15 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ===== 设置自定义参数 =====
-echo "===== 欧加真MT6993通用6.12.58 A16 OKI内核本地编译脚本 By Coolapk@cctv18 ====="
+echo "===== 欧加真MT6993通用6.12.58 A16 OKI内核本地编译脚本 By Coolapk@爱玩机的强哥 ====="
 echo ">>> 读取用户配置..."
 MANIFEST=${MANIFEST:-oppo+oplus+realme}
 read -p "请输入自定义内核后缀（默认：android16-5-ge7f2a9832757-ab13799791-4k）: " CUSTOM_SUFFIX
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android16-5-ge7f2a9832757-ab13799791-4k}
 read -p "是否启用susfs？(y/n，默认：y): " APPLY_SUSFS
 APPLY_SUSFS=${APPLY_SUSFS:-y}
-read -p "是否启用 KPM？(y-启用 KpatchNext独立kpm实现, n-关闭kpm，默认：n): " USE_PATCH_LINUX
-USE_PATCH_LINUX=${USE_PATCH_LINUX:-n}
+read -p "是否启用 KPM？(y-启用 KpatchNext独立kpm实现, n-关闭kpm，默认：y): " USE_PATCH_LINUX
+USE_PATCH_LINUX=${USE_PATCH_LINUX:-y}
 read -p "KSU分支版本(r=ReSukiSU, y=SukiSU Ultra, n=KernelSU Next, k=KSU, l=lkm模式(无内置KSU), 默认：r): " KSU_BRANCH
 KSU_BRANCH=${KSU_BRANCH:-r}
 read -p "是否应用 lz4 1.10.0 & zstd 1.5.7 补丁？(y/n，默认：y): " APPLY_LZ4
@@ -31,8 +31,10 @@ read -p "是否启用ADIOS调度器？(y/n，默认：y): " APPLY_ADIOS
 APPLY_ADIOS=${APPLY_ADIOS:-y}
 read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
 APPLY_REKERNEL=${APPLY_REKERNEL:-n}
-read -p "是否启用内核级基带保护？(y/n，默认：y): " APPLY_BBG
-APPLY_BBG=${APPLY_BBG:-y}
+read -p "是否启用内核级基带保护？(y/n，默认：n): " APPLY_BBG
+APPLY_BBG=${APPLY_BBG:-n}
+read -p "是否启用Unicode不可见字码点绕过读取漏洞修复？(y/n，默认：y): " APPLY_UNICODE_FIX
+APPLY_UNICODE_FIX=${APPLY_UNICODE_FIX:-y}
 
 if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   KSU_TYPE="SukiSU Ultra"
@@ -61,6 +63,7 @@ echo "应用 Droidspaces 容器支持: $APPLY_DROIDSPACES"
 echo "启用ADIOS调度器: $APPLY_ADIOS"
 echo "启用Re-Kernel: $APPLY_REKERNEL"
 echo "启用内核级基带保护: $APPLY_BBG"
+echo "启用Unicode不可见字码点绕过读取漏洞修复: $APPLY_UNICODE_FIX"
 echo "===================="
 echo
 
@@ -135,7 +138,7 @@ echo "CONFIG_LOCALVERSION_AUTO=n" >> ./common/arch/arm64/configs/gki_defconfig
 if [[ $KSU_BRANCH == [yYrR] ]]; then
   echo ">>> 拉取 ReSukiSU 并设置版本（由于SukiSU长期未维护无法正常编译，且ReSukiSU兼容sukisu管理器，故SukiSU源码仓库已重定向为resukisu）..."
   curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
-  echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
+  echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@爱玩机的强哥"' >> ./common/arch/arm64/configs/gki_defconfig
 elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
   echo ">>> 拉取 KernelSU Next 并设置版本..."
   curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/refs/heads/dev-susfs/kernel/setup.sh" | bash -s dev-susfs
@@ -384,6 +387,18 @@ if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   cd ..
 fi
 
+# ===== 启用 Unicode 不可见字码点绕过读取漏洞修复 =====
+if [[ "$APPLY_UNICODE_FIX" == "y" || "$APPLY_UNICODE_FIX" == "Y" ]]; then
+  echo ">>> 正在启用 Unicode 不可见字码点绕过读取漏洞修复..."
+  cd ./common
+  # 修复 fs/unicode/utf8-norm.c 中空分解(如零宽空格)导致的路径绕过读取漏洞
+  # 该补丁来自 WildKernels/kernel_patches，适用于 6.1+ 内核
+  wget -O unicode_bypass_fix.patch https://github.com/WildKernels/kernel_patches/raw/main/common/unicode_bypass_fix_6.1%2B.patch
+  patch -p1 -F 3 < unicode_bypass_fix.patch || true
+  rm -f unicode_bypass_fix.patch
+  cd ..
+fi
+
 # ===== 禁用 defconfig 检查 =====
 echo ">>> 禁用 defconfig 检查..."
 sed -i 's/check_defconfig//' ./common/build.config.gki
@@ -515,6 +530,9 @@ if [[ "$APPLY_REKERNEL" == "y" || "$APPLY_REKERNEL" == "Y" ]]; then
 fi
 if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-bbg"
+fi
+if [[ "$APPLY_UNICODE_FIX" == "y" || "$APPLY_UNICODE_FIX" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-unicode"
 fi
 
 ZIP_NAME="${ZIP_NAME}-v$(date +%Y%m%d).zip"

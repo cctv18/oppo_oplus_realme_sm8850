@@ -31,7 +31,7 @@ on:
         description: '是否开启kpm(builtin-使用(re)sukisu内置kpm, kpn-使用独立kpm实现(支持任意KSU/面具环境); 不需要可保持默认关闭)'
         required: true
         type: choice
-        default: 'false'
+        default: 'kpn'
         options:
           - 'false'
           - 'builtin'
@@ -72,6 +72,11 @@ on:
         default: 'false'
       baseband_guard:
         description: '是否开启内核级基带保护(阻止一切对非用户分区的写入，有效防止格机)'
+        required: true
+        type: boolean
+        default: 'false'
+      unicode_fix:
+        description: '是否启用Unicode不可见字码点绕过读取漏洞修复(防止通过零宽空格等不可见字符绕过路径读取)'
         required: true
         type: boolean
         default: 'true'
@@ -192,6 +197,7 @@ jobs:
           - ADIOS IO调度器支持：${{ github.event.inputs.adios_enable }}
           - Re-Kernel支持：${{ github.event.inputs.rekernel_enable }}
           - 内核级基带保护支持：${{ github.event.inputs.baseband_guard }}
+          - Unicode不可见字码点绕过读取漏洞修复：${{ github.event.inputs.unicode_fix }}
           - ReSukiSU管理器下载：[ReSukiSU_CI](https://github.com/cctv18/ReSukiSU_CI/releases)
           - SukiSU Ultra管理器下载：[SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases)
           - KernelSU Next管理器下载：[KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next/releases)

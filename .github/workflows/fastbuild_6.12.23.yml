@@ -31,7 +31,7 @@ on:
         description: '是否开启kpm(使用KpatchNext独立实现kpm(支持任意KSU/面具环境); 不需要可保持默认关闭)'
         required: true
         type: boolean
-        default: 'false'
+        default: 'true'
       lz4_enable:
         description: '是否安装 lz4 1.10.0+zstd 1.5.7 补丁'
         required: true
@@ -77,6 +77,11 @@ on:
         default: 'false'
       baseband_guard:
         description: '是否开启内核级基带保护(阻止一切对非用户分区的写入，有效防止格机)'
+        required: true
+        type: boolean
+        default: 'false'
+      unicode_fix:
+        description: '是否启用Unicode不可见字码点绕过读取漏洞修复(防止通过零宽空格等不可见字符绕过路径读取)'
         required: true
         type: boolean
         default: 'true'
@@ -258,7 +263,7 @@ jobs:
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" || ${{ github.event.inputs.ksu_type }} == "resukisu" ]]; then
             echo "正在配置ReSukiSU（由于SukiSU长期未维护无法正常编译，且ReSukiSU兼容sukisu管理器，故SukiSU源码仓库已重定向为resukisu）..."
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/refs/heads/main/kernel/setup.sh" | bash -s main
-            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
+            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@爱玩机的强哥"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
@@ -540,6 +545,16 @@ jobs:
           curl -sSL https://github.com/cctv18/Baseband-guard/raw/master/setup.sh | bash
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' security/Kconfig
 
+      - name: 启用Unicode不可见字码点绕过读取漏洞修复
+        if: inputs.unicode_fix
+        run: |
+          echo "正在启用Unicode不可见字码点绕过读取漏洞修复…"
+          cd kernel_workspace
+          cd ./common
+          wget -O unicode_bypass_fix.patch https://github.com/WildKernels/kernel_patches/raw/main/common/unicode_bypass_fix_6.1%2B.patch
+          patch -p1 -F 3 < unicode_bypass_fix.patch || true
+          rm -f unicode_bypass_fix.patch
+
       - name: 添加制作名称
         run: |
           cd kernel_workspace
@@ -774,6 +789,7 @@ jobs:
           echo "ADIOS: ${{ github.event.inputs.adios_enable }}" >> ./ak3.log
           echo "Re-Kernel: ${{ github.event.inputs.rekernel_enable }}" >> ./ak3.log
           echo "BBG: ${{ github.event.inputs.baseband_guard }}" >> ./ak3.log
+          echo "Unicode: ${{ github.event.inputs.unicode_fix }}" >> ./ak3.log
           zip -z ../$AK3_NAME < ./ak3.log
 
       - name: 上传 Ccache 调试日志
@@ -858,6 +874,7 @@ jobs:
           - ADIOS IO调度器支持：${{ github.event.inputs.adios_enable }}
           - Re-Kernel支持：${{ github.event.inputs.rekernel_enable }}
           - 内核级基带保护支持：${{ github.event.inputs.baseband_guard }}
+          - Unicode不可见字码点绕过读取漏洞修复：${{ github.event.inputs.unicode_fix }}
           - ReSukiSU管理器下载：[ReSukiSU_CI](https://github.com/cctv18/ReSukiSU_CI/releases)
           - SukiSU Ultra管理器下载：[SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases)
           - KernelSU Next管理器下载：[KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next/releases)
