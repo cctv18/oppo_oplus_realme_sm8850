@@ -252,16 +252,61 @@ jobs:
 
       - name: 添加KernelSU
         id: ksu_version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # 进入内核工作目录
           cd kernel_workspace
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" || ${{ github.event.inputs.ksu_type }} == "resukisu" ]]; then
             echo "正在配置ReSukiSU（由于SukiSU长期未维护无法正常编译，且ReSukiSU兼容sukisu管理器，故SukiSU源码仓库已重定向为resukisu）..."
+            # 对齐官方最新上传构建：检索 ReSukiSU 官方 main 分支最新一次 Manager 上传构建对应的提交，
+            # 并检出到该提交，使内核 KSU 版本 (30700 + 提交数) 与官方管理器 versionCode 严格一致
+            RUNS_API="https://api.github.com/repos/ReSukiSU/ReSukiSU/actions/workflows/build-manager.yml/runs"
+            CAND_FILE=$(mktemp)
+            TODAY=$(date -u +%Y-%m-%d)
+            for DAYS in 0 7 30 90 365; do
+              if [ "$DAYS" -eq 0 ]; then FROM="$TODAY"; else FROM=$(date -u -d "today - $DAYS days" +%Y-%m-%d); fi
+              for PAGE in 1 2 3; do
+                RUNS=""
+                for ATTEMPT in 1 2 3; do
+                  RUNS=$(curl -s --fail --max-time 30 -H "Authorization: token $GH_TOKEN" "$RUNS_API?status=success&created=$FROM..$TODAY&per_page=30&page=$PAGE") && [ -n "$RUNS" ] && break
+                  RUNS=""
+                  sleep 3
+                done
+                COUNT=$(printf '%s' "$RUNS" | jq '.workflow_runs | length' 2>/dev/null || echo 0)
+                if [ "$COUNT" -eq 0 ]; then break; fi
+                for IDX in $(seq 0 $((COUNT - 1))); do
+                  BRANCH=$(printf '%s' "$RUNS" | jq -r ".workflow_runs[$IDX].head_branch")
+                  EVENT=$(printf '%s' "$RUNS" | jq -r ".workflow_runs[$IDX].event")
+                  CREATED=$(printf '%s' "$RUNS" | jq -r ".workflow_runs[$IDX].created_at")
+                  SHA=$(printf '%s' "$RUNS" | jq -r ".workflow_runs[$IDX].head_sha")
+                  if [ "$BRANCH" = "main" ] && [ "$EVENT" = "push" ]; then
+                    printf '%s\t%s\n' "$CREATED" "$SHA" >> "$CAND_FILE"
+                  fi
+                done
+              done
+              if [ -s "$CAND_FILE" ]; then break; fi
+            done
+            KSU_COMMIT=$(sort -u -t$'\t' -k1,1r "$CAND_FILE" | head -n1 | cut -f2)
+            rm -f "$CAND_FILE"
             curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/refs/heads/main/kernel/setup.sh" | bash -s main
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
+            if [ -n "$KSU_COMMIT" ]; then
+              if ! git checkout --detach "$KSU_COMMIT" 2>/dev/null; then
+                git fetch origin "$KSU_COMMIT"
+                git checkout --detach "$KSU_COMMIT"
+              fi
+              if [ "$(git rev-parse HEAD)" != "$KSU_COMMIT" ]; then
+                echo "::error::ReSukiSU 检出官方构建提交 $KSU_COMMIT 失败，无法对齐管理器版本"
+                exit 1
+              fi
+              echo "ReSukiSU 已检出到官方上传构建提交 $KSU_COMMIT"
+            else
+              echo "::warning::未找到官方 main 分支最新上传的 Manager 构建，KernelSU 跟随 main HEAD（版本号可能与官方管理器不一致）"
+            fi
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
-            KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
+            KSU_VERSION=$(expr $(git rev-list --count HEAD) + 30700 2>/dev/null || echo 114514)
             # 存储版本号到 GitHub 环境变量
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
             echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
