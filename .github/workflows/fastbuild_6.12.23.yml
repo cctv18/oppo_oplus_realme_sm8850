@@ -590,6 +590,14 @@ jobs:
           echo "sloppiness = file_stat_matches,include_file_ctime,include_file_mtime,pch_defines,file_macro,time_macros" >> "$CCACHE_DIR/ccache.conf"
           
           cd kernel_workspace/common
+          # Fix Clang 19 libbpf const-qualifier errors
+          LIBBPF_C=tools/lib/bpf/libbpf.c
+
+          sed -i \
+            -e 's/^\([[:space:]]*\)char \*res;$/\1const char *res;/' \
+            -e 's/^\([[:space:]]*\)char \*next_path;$/\1const char *next_path;/' \
+            "$LIBBPF_C"
+            
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/lib/libfakestat.so
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/lib/libfaketimeMT.so
           chmod 777 ./*.so
